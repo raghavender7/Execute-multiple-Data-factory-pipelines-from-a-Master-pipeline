@@ -1,0 +1,53 @@
+{
+	"name": "DS_SQLConfigtableLog",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_Configtable",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "REC_ID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "FILE_TY_ID",
+				"type": "nvarchar"
+			},
+			{
+				"name": "ROUND",
+				"type": "nvarchar"
+			},
+			{
+				"name": "CLNT_ID",
+				"type": "nvarchar"
+			},
+			{
+				"name": "CLNT_NM",
+				"type": "nvarchar"
+			},
+			{
+				"name": "FILE_NM",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Processed",
+				"type": "nchar"
+			},
+			{
+				"name": "REC_CRE_TMST",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "config_table_log"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

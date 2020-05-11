@@ -1,0 +1,241 @@
+{
+	"name": "Master backup",
+	"properties": {
+		"activities": [
+			{
+				"name": "Check config table",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Load Triggered info to Config Log",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "select  REC_ID,FILE_TY_ID, CLNT_ID, CLNT_NM, FILE_NM from config_table_log where Processed ='N'",
+						"queryTimeout": "02:00:00"
+					},
+					"dataset": {
+						"referenceName": "DS_SQLConfigtableLog",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Loop Unprocessed files in Config",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Check config table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Check config table').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "Check FileType",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().FILE_TY_ID",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "401K",
+										"activities": [
+											{
+												"name": "Execute 401K Pipeline",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "401K pipeline",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"filetypeid": {
+															"value": "@{item().FILE_TY_ID}",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									},
+									{
+										"value": "INVEST",
+										"activities": [
+											{
+												"name": "Execute Invest Pipeline",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "Invest pipeline",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"filetypeid": {
+															"value": "@{item().FILE_TY_ID}",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								],
+								"defaultActivities": [
+									{
+										"name": "Execute Pension pipeline",
+										"type": "ExecutePipeline",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"pipeline": {
+												"referenceName": "Pension pipeline",
+												"type": "PipelineReference"
+											},
+											"waitOnCompletion": true,
+											"parameters": {
+												"filetypeid": {
+													"value": "@{item().FILE_TY_ID}",
+													"type": "Expression"
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Load Triggered info to Config Log",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[usp_populate_config_table]",
+					"storedProcedureParameters": {
+						"V_Item_Name": {
+							"value": {
+								"value": "@pipeline().parameters.filenamefromtrigger",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"clientname": {
+							"value": {
+								"value": "@first(split(pipeline().parameters.filenamefromtrigger, '_'))",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"filetype": {
+							"value": {
+								"value": "@toUpper(substring(\n\npipeline().parameters.filenamefromtrigger, \nadd(indexof(pipeline().parameters.filenamefromtrigger,'_'),1), \n\nsub(\nsub(lastindexof(pipeline().parameters.filenamefromtrigger,'_'),1), \nindexof(pipeline().parameters.filenamefromtrigger,'_')\n)\n)\n)",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_Configtable",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Update Processed",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Loop Unprocessed files in Config",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[usp_update_config_table]",
+					"storedProcedureParameters": {
+						"recordid": {
+							"value": {
+								"value": "@{activity('Check config table').output.value[0].rec_id}",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "LS_Configtable",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"folderpathfromtrigger": {
+				"type": "string"
+			},
+			"filenamefromtrigger": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"filenamefromtrigger": {
+				"type": "String"
+			},
+			"recordid": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
