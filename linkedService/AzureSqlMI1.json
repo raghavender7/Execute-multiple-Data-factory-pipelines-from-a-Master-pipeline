@@ -1,0 +1,10 @@
+{
+	"name": "AzureSqlMI1",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlMI",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=\"sqlmilagrob.public.8d1253e20702.database.windows.net, 3342\";Initial Catalog=AdventureWorks2014"
+		}
+	}
+}
